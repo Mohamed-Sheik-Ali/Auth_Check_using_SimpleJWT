@@ -15,13 +15,14 @@ import jwt
 from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
+from SimpApp.renderers import UserRenderer
 # Create your views here.
 
 
 class RegisterView(GenericAPIView):
 
     serializer_class = RegisterSerializer
+    renderer_classes = (UserRenderer, )
 
     def post(self, request):
         user = request.data
