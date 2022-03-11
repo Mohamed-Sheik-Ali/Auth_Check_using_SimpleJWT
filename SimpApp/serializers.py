@@ -2,6 +2,12 @@ from rest_framework import serializers
 from SimpApp.models import MyUser
 from django.contrib import auth
 from rest_framework.exceptions import AuthenticationFailed
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
+from SimpApp.utils import Util
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -69,3 +75,47 @@ class LoginSerializer(serializers.ModelSerializer):
         }
 
         return super.validate(attrs)
+
+
+class ResetPasswordEmailRequestSerializer(serializers.Serializer):
+
+    email = serializers.EmailField(min_length=6)
+
+    class Meta:
+        fields = ['email']
+
+
+class SetNewPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        min_length=6, max_length=70, write_only=True)
+    token = serializers.CharField(
+        min_length=1, write_only=True)
+    uidb64 = serializers.CharField(
+        min_length=1, write_only=True)
+
+    class Meta:
+
+        fields = ['password', 'token', 'uidb64']
+
+    def validate(self, attrs):
+
+        try:
+            password = attrs.get('password', '')
+            token = attrs.get('token', '')
+            uidb64 = attrs.get('uidb64', '')
+
+            id = force_str(urlsafe_base64_decode(uidb64))
+            user = MyUser.objects.get(id=id)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return AuthenticationFailed("The reset link is invalid", 400)
+
+            user.set_password(password)
+            user.save()
+
+            return user
+
+        except Exception as e:
+            return AuthenticationFailed("The reset link is invalid", 400)
+
+        return super().validate(attrs)
